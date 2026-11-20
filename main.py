@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import plotly.express as px
-import plotly.graph_objects as go
-import re
 
 from utils import initialize_session_state, EXPENSE_CATEGORIES, INCOME_CATEGORIES
 from database import (init_database, create_user, verify_user,
@@ -11,8 +8,8 @@ from database import (init_database, create_user, verify_user,
                       load_budget_limits)
 from components import (render_sidebar, render_transaction_form,
                         render_transaction_table, render_monthly_summary,
-                        render_category_breakdown)
-from ai_assistant import get_spending_insights, get_budget_recommendations
+                        render_category_breakdown, render_ai_assistant)
+from validation import validate_signup
 from budgeting import render_budget_settings, render_budget_overview
 
 # Initialize database
@@ -34,12 +31,6 @@ if 'username' not in st.session_state:
     st.session_state.username = None
 
 
-def is_valid_email(email):
-    """Validate email format"""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
-
-
 def login():
     """Handle user login"""
     try:
@@ -59,17 +50,18 @@ def login():
 def signup():
     """Handle user signup"""
     try:
-        if not is_valid_email(st.session_state.signup_email):
-            st.error("Please enter a valid email address")
+        errors = validate_signup(st.session_state.signup_username,
+                                 st.session_state.signup_email,
+                                 st.session_state.signup_password,
+                                 st.session_state.signup_confirm_password)
+        if errors:
+            for error in errors:
+                st.error(error)
             return
 
-        if st.session_state.signup_password != st.session_state.signup_confirm_password:
-            st.error("Passwords do not match")
-            return
-
-        user_id = create_user(st.session_state.signup_username,
+        user_id = create_user(st.session_state.signup_username.strip(),
                               st.session_state.signup_password,
-                              st.session_state.signup_email)
+                              st.session_state.signup_email.strip())
         st.session_state.authenticated = True
         st.session_state.user_id = user_id
         st.session_state.username = st.session_state.signup_username
@@ -129,6 +121,8 @@ else:
             st.session_state.authenticated = False
             st.session_state.user_id = None
             st.session_state.username = None
+            st.session_state.pop("chat_history", None)
+            st.session_state.pop("recommendations", None)
             st.rerun()
 
     # Main content based on navigation
@@ -181,32 +175,7 @@ else:
     elif page == "AI Assistant":
         st.title("🤖 AI Financial Assistant")
 
-        # Load and analyze transactions
-        transactions = load_transactions(st.session_state.user_id)
-        if not transactions.empty:
-            current_month = datetime.now().strftime("%Y-%m")
-            monthly_transactions = transactions[pd.to_datetime(
-                transactions['date']).dt.strftime("%Y-%m") == current_month]
-
-            # Calculate monthly totals
-            monthly_income = monthly_transactions[
-                monthly_transactions['amount'] > 0]['amount'].sum()
-            monthly_expenses = monthly_transactions[
-                monthly_transactions['amount'] < 0]['amount'].sum()
-
-            # Display insights
-            with st.expander("💡 Spending Insights", expanded=True):
-                insights = get_spending_insights(monthly_transactions)
-                if insights:
-                    st.write(insights)
-
-            with st.expander("📊 Budget Recommendations", expanded=True):
-                recommendations = get_budget_recommendations(
-                    monthly_income, monthly_expenses)
-                if recommendations:
-                    st.write(recommendations)
-        else:
-            st.info("Add some transactions to get AI-powered insights!")
+        render_ai_assistant(st.session_state.user_id)
 
     elif page == "Account Settings":
         st.title("⚙️ Account Settings")
@@ -227,13 +196,15 @@ else:
 
         # Data Export
         st.header("Data Management")
-        if st.button("Export Transactions (CSV)"):
-            transactions = load_transactions(st.session_state.user_id)
-            if not transactions.empty:
-                transactions.to_csv("transactions_export.csv", index=False)
-                st.success("Data exported successfully!")
-            else:
-                st.info("No transactions to export")
+        transactions = load_transactions(st.session_state.user_id)
+        if not transactions.empty:
+            export = transactions[["date", "type", "category", "description", "amount"]]
+            st.download_button("Export Transactions (CSV)",
+                               data=export.to_csv(index=False),
+                               file_name="spendify_transactions.csv",
+                               mime="text/csv")
+        else:
+            st.info("No transactions to export yet.")
 
         # Account Security
         st.header("Security")

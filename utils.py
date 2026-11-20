@@ -41,20 +41,3 @@ def initialize_session_state():
             datetime.now().replace(day=1),
             datetime.now()
         ]
-
-def validate_transaction(amount, category, date, description):
-    """Validate transaction input fields"""
-    if not amount:
-        return False, "Amount is required"
-    
-    if not category:
-        return False, "Category is required"
-    
-    if not date:
-        return False, "Date is required"
-    
-    if not description.strip():
-        return False, "Description is required"
-    
-    return True, ""
-

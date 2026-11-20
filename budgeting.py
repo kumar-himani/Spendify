@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils import EXPENSE_CATEGORIES
+from validation import validate_budget_limits
 from database import (
     save_transaction,
     load_transactions,
@@ -24,12 +25,12 @@ def load_budget_limits_for_user(user_id):
         return load_budget_limits(user_id) # Load budget limits from database
     except Exception as e:
         st.error(f"Failed to load budget limits: {str(e)}")
-        return {category: 0.0 for category in EXPENSE_CATEGORIES} # Return default budget.                            limits if loading fails
+        return {category: 0.0 for category in EXPENSE_CATEGORIES} # Return default budget limits if loading fails
 
 def render_budget_settings(user_id): 
     """Render budget limits settings form"""
     st.subheader("Set Monthly Budget Limits")
-    budget_limits = load_budget_limits_for_user(user_id) # Load budget limits for       user
+    budget_limits = load_budget_limits_for_user(user_id) # Load budget limits for user
 
     # Create a form to collect user input for budget limits
     col1, col2 = st.columns(2)
@@ -55,7 +56,27 @@ def render_budget_settings(user_id):
             )
 
     if st.button("Save Budget Limits"):
-        save_budget_limits_for_user(user_id, new_limits)
+        errors, warnings = validate_budget_limits(new_limits, _this_month_income(user_id))
+        for error in errors:
+            st.error(error)
+        for warning in warnings:
+            st.warning(warning)
+        if not errors:
+            save_budget_limits_for_user(user_id, new_limits)
+
+
+def _this_month_income(user_id):
+    """Total income logged this month, used to sanity-check budget limits."""
+    try:
+        transactions = load_transactions(user_id)
+    except Exception:
+        return None
+    if transactions.empty:
+        return None
+    current_month = datetime.now().strftime("%Y-%m")
+    this_month = transactions[pd.to_datetime(transactions["date"]).dt.strftime("%Y-%m") == current_month]
+    income = this_month.loc[this_month["amount"] > 0, "amount"].astype(float).sum()
+    return income or None
 
 def render_budget_overview(user_id):
     """Render budget overview with progress bars"""
