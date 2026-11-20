@@ -358,7 +358,11 @@ def render_ai_assistant(user_id):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    question = st.chat_input("Ask me about your finances!", disabled=get_client() is None)
+    has_key = get_client() is not None
+    question = st.chat_input(
+        "Ask me about your finances!" if has_key else "Add an OpenAI API key to turn on chat",
+        disabled=not has_key,
+    )
     if question:
         with st.chat_message("user"):
             st.markdown(question)

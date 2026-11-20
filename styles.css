@@ -4,57 +4,26 @@
     margin: 0 auto;
 }
 
-/* Headers */
+/* Headers: inherit the theme's text color so they work in light and dark mode */
 h1 {
-    color: #1f77b4;
     margin-bottom: 2rem;
 }
 
 h2, h3 {
-    color: #2c3e50;
     margin-bottom: 1rem;
 }
 
-/* Metrics */
-.metric-container {
-    background-color: #f8f9fa;
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Forms */
-.stForm {
-    background-color: #ffffff;
+/* Forms: a border instead of a hard-coded white background, which hid the
+   labels when the browser was in dark mode */
+[data-testid="stForm"] {
     padding: 1.5rem;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-/* Tables */
-.transaction-row {
-    padding: 1rem;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.transaction-row:hover {
-    background-color: #f8f9fa;
-}
-
-/* Charts */
-.plotly-chart {
-    margin-top: 1rem;
-    margin-bottom: 2rem;
+    border: 1px solid rgba(128, 128, 128, 0.3);
 }
 
 /* Buttons */
 .stButton button {
     width: 100%;
-}
-
-/* Sidebar */
-.sidebar .stSelectbox {
-    margin-bottom: 1rem;
 }
 
 /* Responsive adjustments */
