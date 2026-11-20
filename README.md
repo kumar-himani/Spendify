@@ -2,7 +2,7 @@
 
 A personal finance web app for students and young adults. Track income and expenses, set monthly budgets, see where your money goes, and ask an AI assistant budgeting and tax questions grounded in your own spending.
 
-Built by [Himani Kumar](https://github.com/kumar-himani) and [PARTNER NAME](https://github.com/PARTNER-USERNAME) for FBLA Coding & Programming (National Qualifier, 2025). Features were prioritized around pain points from a 73-person user survey.
+Built by [Himani Kumar](https://github.com/kumar-himani) and [Nikita Nayunipati](https://github.com/nikitavn) for FBLA Coding & Programming (National Qualifier, 2025). Features were prioritized around pain points from a 73-person user survey.
 
 <!-- Screenshots: drag your images in here -->
 
