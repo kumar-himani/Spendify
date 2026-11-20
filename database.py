@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import hashlib
+from security import hash_password, verify_password, needs_rehash
 
 # Get database connection details from environment variables
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -17,6 +17,7 @@ def get_db_connection():
 
 def init_database():
     """Initialize database tables"""
+    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -100,21 +101,21 @@ def init_database():
             conn.close()
 
 def create_user(username, password, email=None):
-    """Create a new user"""
+    """Create a new user with a salted password hash"""
     conn = get_db_connection()
     cur = conn.cursor()
-    
+
     try:
-        # Hash the password
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        
         cur.execute(
             "INSERT INTO users (username, password_hash, email) VALUES (%s, %s, %s) RETURNING id",
-            (username, password_hash, email)
+            (username, hash_password(password), email)
         )
         user_id = cur.fetchone()[0]
         conn.commit()
         return user_id
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        raise ValueError("That username is already taken.")
     except psycopg2.Error as e:
         conn.rollback()
         raise e
@@ -123,18 +124,27 @@ def create_user(username, password, email=None):
         conn.close()
 
 def verify_user(username, password):
-    """Verify user credentials"""
+    """Verify user credentials. Upgrades older unsalted hashes after a successful login."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
-    
+
     try:
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
         cur.execute(
-            "SELECT id, username FROM users WHERE username = %s AND password_hash = %s",
-            (username, password_hash)
+            "SELECT id, username, password_hash FROM users WHERE username = %s",
+            (username,)
         )
         user = cur.fetchone()
-        return user
+        if not user or not verify_password(password, user['password_hash']):
+            return None
+
+        if needs_rehash(user['password_hash']):
+            cur.execute(
+                "UPDATE users SET password_hash = %s WHERE id = %s",
+                (hash_password(password), user['id'])
+            )
+            conn.commit()
+
+        return {'id': user['id'], 'username': user['username']}
     finally:
         cur.close()
         conn.close()
