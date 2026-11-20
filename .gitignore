@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Replit
+.pythonlibs/
+.cache/
+.upm/
+.local/
+
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Data generated while using the app (may contain real spending)
+*.csv
+data/
+
+# macOS
+.DS_Store
