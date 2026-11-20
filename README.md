@@ -4,7 +4,13 @@ A personal finance web app for students and young adults. Track income and expen
 
 Built by [Himani Kumar](https://github.com/kumar-himani) and [Nikita Nayunipati](https://github.com/nikitavn) for FBLA Coding & Programming (National Qualifier, 2025). Features were prioritized around pain points from a 73-person user survey.
 
-<!-- Screenshots: drag your images in here -->
+<img width="1203" height="974" alt="Screenshot 2026-11-20 at 5 04 55 AM" src="https://github.com/user-attachments/assets/3ac00f17-f829-4cde-9a10-03bfc73b78cc" />
+
+<img width="1203" height="974" alt="Screenshot 2026-11-20 at 5 09 12 AM" src="https://github.com/user-attachments/assets/8b755ce8-9c7b-4ea3-b970-0b63f65d2fb4" />
+
+<img width="1207" height="972" alt="Screenshot 2026-11-20 at 5 03 57 AM" src="https://github.com/user-attachments/assets/7709ab85-d81b-4841-b891-b70293ef479d" />
+
+
 
 ## Features
 - **Accounts:** sign up and log in, with salted PBKDF2 password hashing
