@@ -3,7 +3,10 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-from utils import EXPENSE_CATEGORIES, INCOME_CATEGORIES, validate_transaction
+from utils import EXPENSE_CATEGORIES, INCOME_CATEGORIES
+from validation import validate_transaction
+from ai_assistant import (AssistantError, ask_assistant, available_months,
+                          generate_budget_recommendations, get_client, summarize_finances)
 from database import (
     save_transaction,
     load_transactions,
@@ -35,39 +38,38 @@ def render_sidebar():
 
 def render_transaction_form(user_id):
     """Render the transaction input form"""
-    with st.form("transaction_form"):
-        transaction_type = st.selectbox(
-            "Type",
-            ["Expense", "Income"]
-        )
+    # The type picker lives outside the form so the category list updates as soon as it changes.
+    # (Widgets inside an st.form don't rerun the app until the form is submitted.)
+    transaction_type = st.selectbox("Type", ["Expense", "Income"], key="new_transaction_type")
+    categories = INCOME_CATEGORIES if transaction_type == "Income" else EXPENSE_CATEGORIES
 
-        categories = INCOME_CATEGORIES if transaction_type == "Income" else EXPENSE_CATEGORIES
+    with st.form("transaction_form", clear_on_submit=True):
         category = st.selectbox("Category", categories)
-
-        amount = st.number_input("Amount ($)", min_value=0.01, format="%f")
-        date = st.date_input("Date", datetime.now())
-        description = st.text_input("Description")
+        amount = st.number_input("Amount ($)", min_value=0.01, step=1.0, format="%.2f")
+        date = st.date_input("Date", datetime.now(), max_value=datetime.now())
+        description = st.text_input("Description", max_chars=200)
 
         submitted = st.form_submit_button("Add Transaction")
 
         if submitted:
-            valid, error_message = validate_transaction(amount, category, date, description)
-            if valid:
-                try:
-                    save_transaction(
-                        user_id,
-                        date.strftime("%Y-%m-%d"),
-                        amount if transaction_type == "Income" else -amount,
-                        category,
-                        description,
-                        transaction_type
-                    )
-                    st.success("Transaction added successfully!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save transaction: {str(e)}")
-            else:
-                st.error(error_message)
+            errors = validate_transaction(amount, category, date, description, transaction_type)
+            if errors:
+                for error in errors:
+                    st.error(error)
+                return
+            try:
+                save_transaction(
+                    user_id,
+                    date.strftime("%Y-%m-%d"),
+                    amount if transaction_type == "Income" else -amount,
+                    category,
+                    description.strip(),
+                    transaction_type
+                )
+                st.success("Transaction added successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to save transaction: {str(e)}")
 
 def render_transaction_table(user_id):
     """Render the transactions table with edit/delete functionality"""
@@ -313,3 +315,60 @@ def render_category_breakdown(user_id):
 
     except Exception as e:
         st.error(f"Failed to render category breakdown: {str(e)}")
+
+def render_ai_assistant(user_id):
+    """Render the AI assistant page: personalized recommendations plus a chat."""
+    transactions = load_transactions(user_id)
+    if transactions.empty:
+        st.info("Add some transactions to get AI-powered insights!")
+        return
+
+    months = available_months(transactions)
+    month = st.selectbox("Month to analyze", months, format_func=lambda m: pd.to_datetime(m).strftime("%B %Y"))
+    summary = summarize_finances(transactions, load_budget_limits(user_id), month)
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Income", f"${summary['income']:,.2f}")
+    col2.metric("Expenses", f"${summary['expenses']:,.2f}")
+    col3.metric("Savings rate", f"{summary['savings_rate']}%" if summary["savings_rate"] is not None else "N/A")
+
+    if get_client() is None:
+        st.warning("No OpenAI API key is set, so recommendations are rule-based and chat is turned off.")
+
+    st.subheader("📊 Personalized Budget Recommendations")
+    cache = st.session_state.setdefault("recommendations", {})
+    if st.button("Generate recommendations"):
+        with st.spinner("Analyzing your spending..."):
+            try:
+                cache[month] = generate_budget_recommendations(summary)
+            except AssistantError as e:
+                st.error(str(e))
+    if month in cache:
+        text, source = cache[month]
+        st.markdown(text)
+        st.caption("Generated by AI from your spending summary." if source == "ai"
+                   else "Calculated from your spending using the 50/30/20 rule.")
+
+    st.subheader("💬 Ask about your finances")
+    st.caption("Ask budgeting or tax questions, like \"What's a W-2?\" or \"Where can I cut back this month?\" "
+               "Only your monthly totals are shared with the AI, never your transaction details.")
+
+    history = st.session_state.setdefault("chat_history", [])
+    for message in history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    question = st.chat_input("Ask me about your finances!", disabled=get_client() is None)
+    if question:
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                try:
+                    answer = ask_assistant(question, summary, history)
+                except AssistantError as e:
+                    st.error(str(e))
+                    return
+            st.markdown(answer)
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": answer})
