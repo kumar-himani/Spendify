@@ -86,6 +86,20 @@ def validate_transaction(amount, category, transaction_date, description, transa
     return errors
 
 
+def password_errors(password, username=""):
+    """Password rules shared by sign-up and change password."""
+    password = password or ""
+    username = str(username or "").strip()
+
+    if len(password) < 8:
+        return ["Password must be at least 8 characters."]
+    if not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
+        return ["Password must include at least one letter and one number."]
+    if username and username.lower() in password.lower():
+        return ["Password can't contain your username."]
+    return []
+
+
 def validate_signup(username, email, password, confirm_password):
     """Validate the sign-up form."""
     errors = []
@@ -96,16 +110,27 @@ def validate_signup(username, email, password, confirm_password):
     if not is_valid_email(email):
         errors.append("Please enter a valid email address.")
 
-    password = password or ""
-    if len(password) < 8:
-        errors.append("Password must be at least 8 characters.")
-    elif not (re.search(r"[A-Za-z]", password) and re.search(r"\d", password)):
-        errors.append("Password must include at least one letter and one number.")
-    elif username and username.lower() in password.lower():
-        errors.append("Password can't contain your username.")
+    errors.extend(password_errors(password, username))
 
-    if password != (confirm_password or ""):
+    if (password or "") != (confirm_password or ""):
         errors.append("Passwords do not match.")
+
+    return errors
+
+
+def validate_password_change(username, current_password, new_password, confirm_password):
+    """Validate the change password form. Checking the current password happens in the database layer."""
+    errors = []
+
+    if not current_password:
+        errors.append("Please enter your current password.")
+
+    errors.extend(password_errors(new_password, username))
+
+    if (new_password or "") != (confirm_password or ""):
+        errors.append("New passwords do not match.")
+    elif new_password and new_password == current_password:
+        errors.append("Your new password must be different from your current one.")
 
     return errors
 

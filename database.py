@@ -149,6 +149,30 @@ def verify_user(username, password):
         cur.close()
         conn.close()
 
+def change_password(user_id, current_password, new_password):
+    """Change a user's password. Returns False if the current password is wrong."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cur.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+        user = cur.fetchone()
+        if not user or not verify_password(current_password, user['password_hash']):
+            return False
+
+        cur.execute(
+            "UPDATE users SET password_hash = %s WHERE id = %s",
+            (hash_password(new_password), user_id)
+        )
+        conn.commit()
+        return True
+    except psycopg2.Error as e:
+        conn.rollback()
+        raise e
+    finally:
+        cur.close()
+        conn.close()
+
 def save_transaction(user_id, date, amount, category, description, transaction_type):
     """Save a transaction for a specific user"""
     conn = get_db_connection()

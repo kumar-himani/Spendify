@@ -1,6 +1,7 @@
 from datetime import date
 
-from validation import validate_budget_limits, validate_signup, validate_transaction
+from validation import (validate_budget_limits, validate_password_change, validate_signup,
+                        validate_transaction)
 
 TODAY = date(2025, 3, 16)
 
@@ -67,3 +68,12 @@ def test_budget_limits():
 
     _, warnings = validate_budget_limits({"Housing": 900, "Shopping": 300}, monthly_income=1000)
     assert warnings
+
+
+def test_password_change_rules():
+    assert validate_password_change("himani", "oldpass123", "newpass456", "newpass456") == []
+    assert validate_password_change("himani", "", "newpass456", "newpass456")  # current required
+    assert validate_password_change("himani", "oldpass123", "short1", "short1")  # too short
+    assert validate_password_change("himani", "oldpass123", "himani456", "himani456")  # contains username
+    assert validate_password_change("himani", "oldpass123", "newpass456", "newpass789")  # mismatch
+    assert validate_password_change("himani", "oldpass123", "oldpass123", "oldpass123")  # unchanged

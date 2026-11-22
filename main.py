@@ -3,13 +3,13 @@ import pandas as pd
 from datetime import datetime
 
 from utils import initialize_session_state, EXPENSE_CATEGORIES, INCOME_CATEGORIES
-from database import (init_database, create_user, verify_user,
+from database import (init_database, create_user, verify_user, change_password,
                       save_transaction, load_transactions, save_budget_limits,
                       load_budget_limits)
 from components import (render_sidebar, render_transaction_form,
                         render_transaction_table, render_monthly_summary,
                         render_category_breakdown, render_ai_assistant)
-from validation import validate_signup
+from validation import validate_signup, validate_password_change
 from budgeting import render_budget_settings, render_budget_overview
 
 # Initialize database
@@ -208,5 +208,24 @@ else:
 
         # Account Security
         st.header("Security")
-        if st.button("Change Password"):
-            st.info("Password change functionality coming soon!")
+        with st.form("change_password_form", clear_on_submit=True):
+            st.subheader("Change Password")
+            current_password = st.text_input("Current password", type="password")
+            new_password = st.text_input("New password", type="password",
+                                         help="At least 8 characters, with a letter and a number")
+            confirm_password = st.text_input("Confirm new password", type="password")
+
+            if st.form_submit_button("Change Password"):
+                errors = validate_password_change(st.session_state.username, current_password,
+                                                  new_password, confirm_password)
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                else:
+                    try:
+                        if change_password(st.session_state.user_id, current_password, new_password):
+                            st.success("Your password has been changed.")
+                        else:
+                            st.error("Your current password is incorrect.")
+                    except Exception as e:
+                        st.error(f"Couldn't change your password: {str(e)}")
